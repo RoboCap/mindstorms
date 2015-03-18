@@ -8,15 +8,17 @@ import lejos.nxt.SensorPort;
 
 /**
  * Złożny robot śledzący linię - z fazą kalibracji i parametrami
+ * B - prawy
+ * C - lewy
  */
-public class SmoothLineFollower {
+public class SmoothLFollower {
 
 	/**
 	 * Informacje o śledzonej linii
 	 */
 	private static class LineValues {
-		public int range;
-		public int mid;
+		public float range;
+		public float mid;
 		
 		public LineValues(int range, int mid) {
 			this.range = range;
@@ -39,9 +41,10 @@ public class SmoothLineFollower {
 	/**
 	 * Konstruktor
 	 */
-	public SmoothLineFollower(float power, float gain) {
+	public SmoothLFollower(float power, float gain) {
 		super();
 		light = new ColorSensor(SensorPort.S3);
+		light.setFloodlight(true);
 		this.power = power;
 		this.gain = gain;
 	}
@@ -60,6 +63,7 @@ public class SmoothLineFollower {
 			// korekcja dodatnia: robot wyjeżdża z linii
 			// korekcja ujemna: robot wjeżdża na linię
 			float correction = gain * ((meassuredLight - line.mid) / line.range);
+//			RConsole.println("Mid:" + line.mid + ", Range:" + line.range + ", Corr:" + correction); // debug
 			// i zastosuj na silnikach
 			Motor.B.setSpeed(power + correction);
 			Motor.C.setSpeed(power - correction);
@@ -78,11 +82,12 @@ public class SmoothLineFollower {
 		Motor.C.setSpeed(power / 2);
 		
 		// obracaj się w prawo
-		Motor.B.forward();
-		Motor.C.backward();
+		Motor.B.backward();
+		Motor.C.forward();
 		
 		// i badaj podłoże
-		while(Motor.B.getTachoCount() < 100) {
+		while(Motor.C.getTachoCount() < 200) {
+
 			int meassuredLight = light.getLightValue();
 			// znajdź najciemniejszy
 			if (meassuredLight > max) {
@@ -94,21 +99,24 @@ public class SmoothLineFollower {
 			}
 		}
 		// wylicz zakres i średnią wartość
-		LineValues result = new LineValues(max - min, (int)(max + min / 2));
+		LineValues result = new LineValues(max - min, (max + min) / 2);
+
 		// wróć po zakończonej kalibracji na krawędź linii
-		Motor.B.backward();
-		Motor.C.forward();
-		while (light.getLightValue() < result.mid); 
+		Motor.B.forward();
+		Motor.C.backward();
+		while (light.getLightValue() > result.mid); 
 		
 		return result;
 	}
 	
 	
 	public static void main(String[] aArg) throws Exception {
+//	    RConsole.open();// debug
+
 		LCD.drawString("Smooth LineFollower ", 0, 1);
 		Button.waitForAnyPress();
 
-		SmoothLineFollower lineFollower = new SmoothLineFollower(90, 100);
+		SmoothLFollower lineFollower = new SmoothLFollower(240, 300); // parametry nalezy dostosowac do toru
 		lineFollower.follow(lineFollower.calibrate());
 	}
 }
